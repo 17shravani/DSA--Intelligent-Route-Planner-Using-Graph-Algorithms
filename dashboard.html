@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OptimaPath AI — Intelligent Route Planner Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: #070b14; color: #e2e8f0; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        h1,h2,h3,h4 { font-family: 'Outfit', sans-serif; }
+
+        /* Sidebar */
+        #sidebar {
+            width: 380px; min-width: 380px;
+            background: linear-gradient(180deg, #0d1120 0%, #0a0e1a 100%);
+            border-right: 1px solid rgba(99,102,241,0.15);
+            overflow-y: auto; overflow-x: hidden;
+            display: flex; flex-direction: column; gap: 0;
+        }
+        #sidebar::-webkit-scrollbar { width: 4px; }
+        #sidebar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+
+        /* Cards */
+        .card {
+            background: rgba(15,20,40,0.8);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 14px; padding: 16px;
+            transition: border-color 0.2s;
+        }
+        .card:hover { border-color: rgba(99,102,241,0.3); }
+
+        /* Objective Buttons */
+        .obj-btn {
+            padding: 10px 8px; border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.07);
+            background: rgba(15,20,40,0.9);
+            color: #94a3b8; font-size: 11px; font-weight: 600;
+            cursor: pointer; transition: all 0.18s ease;
+            display: flex; flex-direction: column; align-items: center; gap: 3px;
+            font-family: 'Inter', sans-serif;
+        }
+        .obj-btn:hover { border-color: rgba(99,102,241,0.5); color: #e2e8f0; background: rgba(99,102,241,0.1); }
+        .obj-btn.active {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            border-color: #6d28d9; color: white;
+            box-shadow: 0 0 20px rgba(99,102,241,0.4);
+        }
+        .obj-btn.active-ev {
+            background: linear-gradient(135deg, #0ea5e9, #6366f1);
+            border-color: #0284c7; color: white;
+            box-shadow: 0 0 20px rgba(14,165,233,0.4);
+        }
+
+        /* Metric Cards */
+        .metric-card {
+            background: rgba(10,14,26,0.9);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 10px; padding: 10px 8px;
+            text-align: center;
+        }
+        .metric-val { font-size: 14px; font-weight: 800; font-family: 'Outfit', sans-serif; }
+
+        /* Checkboxes */
+        input[type=checkbox] { accent-color: #6366f1; width: 14px; height: 14px; cursor: pointer; }
+
+        /* Sliders */
+        input[type=range] { accent-color: #6366f1; width: 100%; cursor: pointer; }
+
+        /* Leaflet overrides */
+        .leaflet-tooltip {
+            background: #0d1120 !important; border: 1px solid rgba(99,102,241,0.4) !important;
+            color: #a5b4fc !important; font-size: 9px !important; font-family: 'Inter';
+            border-radius: 4px; padding: 2px 6px;
+        }
+        .leaflet-control-attribution { display: none; }
+
+        /* Route sequence scroll */
+        #routeSeq {
+            font-family: 'Courier New', monospace; font-size: 10px;
+            background: rgba(10,14,26,0.9); border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.06);
+            padding: 8px; max-height: 70px; overflow-y: auto;
+            color: #a5b4fc; line-height: 1.6; word-break: break-all;
+        }
+        #routeSeq::-webkit-scrollbar { width: 3px; }
+        #routeSeq::-webkit-scrollbar-thumb { background: #312e81; }
+
+        /* Section label */
+        .section-label {
+            font-size: 9px; font-weight: 700; letter-spacing: 0.12em;
+            text-transform: uppercase; color: #475569;
+            padding-bottom: 2px;
+        }
+
+        /* Alternative route item */
+        .alt-item {
+            background: rgba(15,20,40,0.8);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 10px; padding: 10px 12px;
+            cursor: pointer; transition: all 0.18s;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .alt-item:hover { border-color: rgba(99,102,241,0.5); background: rgba(99,102,241,0.08); }
+
+        /* Status dot */
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; animation: blink 1.6s infinite; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+        /* EV alert */
+        #evAlert {
+            background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.4);
+            border-radius: 10px; padding: 10px 12px;
+            display: none; gap: 10px; align-items: flex-start;
+        }
+
+        /* Comparison row */
+        .compare-row {
+            display: flex; justify-content: space-between;
+            font-size: 10px; padding: 4px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .compare-row:last-child { border-bottom: none; }
+
+        /* BFS/DFS visualization box */
+        #traversalBox {
+            font-family: 'Courier New', monospace; font-size: 9px;
+            color: #22c55e; background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(34,197,94,0.2); border-radius: 8px;
+            padding: 8px; max-height: 60px; overflow-y: auto;
+        }
+
+        /* Algo selector */
+        .algo-tag {
+            font-size: 9px; font-weight: 700; padding: 2px 8px;
+            border-radius: 20px; cursor: pointer; transition: all 0.18s;
+            border: 1px solid rgba(255,255,255,0.1); color: #64748b;
+        }
+        .algo-tag.active { background: #312e81; border-color: #6366f1; color: #a5b4fc; }
+
+        /* Animated route pulse */
+        @keyframes routePulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        .route-computing { animation: routePulse 0.8s infinite; }
+
+        /* Badge */
+        .badge {
+            font-size: 8px; font-weight: 700; padding: 1px 6px;
+            border-radius: 20px; letter-spacing: 0.05em;
+        }
+    </style>
+</head>
+<body>
+<!-- NAVBAR -->
+<header style="background: rgba(7,11,20,0.95); border-bottom: 1px solid rgba(99,102,241,0.15); padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; z-index: 100; backdrop-filter: blur(12px);">
+    <div style="display:flex; align-items:center; gap:12px;">
+        <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#4f46e5,#7c3aed,#ec4899);display:flex;align-items:center;justify-content:center;box-shadow:0 0 20px rgba(99,102,241,0.5);">
+            <svg width="20" height="20" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        </div>
+        <div>
+            <h1 style="font-size:17px;font-weight:800;color:white;line-height:1;">OptimaPath AI
+                <span class="badge" style="background:rgba(99,102,241,0.25);border:1px solid rgba(99,102,241,0.5);color:#a5b4fc;margin-left:6px;">ULTRAPRO MAX</span>
+            </h1>
+            <p style="font-size:9px;color:#475569;margin-top:1px;">Smart City · EV · Multi-Agent Graph Routing Engine</p>
+        </div>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;">
+        <div style="display:flex;align-items:center;gap:6px;background:rgba(15,20,40,0.8);border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:6px 12px;font-size:10px;color:#94a3b8;">
+            <div class="status-dot"></div>
+            Graph Engine Online
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;background:rgba(15,20,40,0.8);border:1px solid rgba(99,102,241,0.3);border-radius:8px;padding:6px 12px;font-size:10px;color:#a5b4fc;">
+            ⚡ Chargers: N1_1 · N3_3 · N4_4
+        </div>
+    </div>
+</header>
+
+<!-- MAIN -->
+<main style="flex:1; display:flex; overflow:hidden;">
+    <!-- SIDEBAR -->
+    <div id="sidebar">
+        <div style="padding:16px; display:flex; flex-direction:column; gap:14px;">
+
+            <!-- Source / Destination -->
+            <div class="card">
+                <div class="section-label" style="margin-bottom:10px;">📍 Route Terminals</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                    <div>
+                        <label style="font-size:9px;color:#475569;display:block;margin-bottom:4px;">SOURCE NODE</label>
+                        <select id="srcNode" onchange="runRoute()" style="width:100%;background:#0a0e1a;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 8px;color:#e2e8f0;font-size:11px;outline:none;"></select>
+                    </div>
+                    <div>
+                        <label style="font-size:9px;color:#475569;display:block;margin-bottom:4px;">DESTINATION NODE</label>
+                        <select id="dstNode" onchange="runRoute()" style="width:100%;background:#0a0e1a;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 8px;color:#e2e8f0;font-size:11px;outline:none;"></select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Algorithm Selector -->
+            <div class="card">
+                <div class="section-label" style="margin-bottom:8px;">🧠 Algorithm Engine</div>
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <span class="algo-tag active" id="algoDijkstra" onclick="setAlgo('dijkstra')">Dijkstra</span>
+                    <span class="algo-tag" id="algoAstar" onclick="setAlgo('astar')">A* Heuristic</span>
+                    <span class="algo-tag" id="algoBFS" onclick="setAlgo('bfs')">BFS</span>
+                    <span class="algo-tag" id="algoDFS" onclick="setAlgo('dfs')">DFS</span>
+                </div>
+                <div id="traversalBox" style="margin-top:8px;display:none;"></div>
+            </div>
+
+            <!-- Objectives -->
+            <div class="card">
+                <div class="section-label" style="margin-bottom:10px;">🎯 Optimization Objective</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:7px;">
+                    <button class="obj-btn active" id="btn-time" onclick="setObj('time')">🚀 Fastest<span style="font-size:8px;opacity:0.7;">Minimize Time</span></button>
+                    <button class="obj-btn" id="btn-distance" onclick="setObj('distance')">📏 Shortest<span style="font-size:8px;opacity:0.7;">Minimize Distance</span></button>
+                    <button class="obj-btn" id="btn-money" onclick="setObj('money')">💵 Cheapest<span style="font-size:8px;opacity:0.7;">Avoid Tolls</span></button>
+                    <button class="obj-btn" id="btn-eco" onclick="setObj('eco')">🌱 Eco-Route<span style="font-size:8px;opacity:0.7;">Low Emission</span></button>
+                </div>
+                <button class="obj-btn" id="btn-ev" onclick="setObj('ev')" style="width:100%;margin-top:7px;flex-direction:row;justify-content:center;">
+                    ⚡ EV Battery Constraint Routing — Auto Recharge Detour
+                </button>
+                <button class="obj-btn" id="btn-weighted" onclick="setObj('weighted')" style="width:100%;margin-top:6px;flex-direction:row;justify-content:center;">
+                    ⚖️ Custom Weighted Multi-Criteria Tuner
+                </button>
+            </div>
+
+            <!-- EV Panel -->
+            <div class="card" id="evPanel" style="display:none; border-color:rgba(14,165,233,0.3); background:rgba(14,165,233,0.05);">
+                <div class="section-label" style="margin-bottom:10px; color:#38bdf8;">⚡ EV Battery Configuration</div>
+                <div style="display:flex; justify-content:space-between; font-size:10px; color:#94a3b8; margin-bottom:4px;">
+                    <span>Initial Battery</span><span id="batVal" style="color:#38bdf8; font-weight:700;">6.0 kWh</span>
+                </div>
+                <input type="range" id="batSlider" min="2" max="15" step="0.5" value="6" oninput="updateBat(); runRoute();">
+                <div style="display:flex; justify-content:space-between; font-size:9px; color:#334155; margin-top:3px;">
+                    <span>2 kWh Min</span><span>15 kWh Max</span>
+                </div>
+            </div>
+
+            <!-- Weighted Tuner -->
+            <div class="card" id="weightPanel" style="display:none;">
+                <div class="section-label" style="margin-bottom:10px;">⚖️ Weight Tuner</div>
+                <div style="display:flex; justify-content:space-between; font-size:10px; color:#94a3b8; margin-bottom:3px;"><span>Time α</span><span id="aVal" style="color:#6366f1; font-weight:700;">1.0</span></div>
+                <input type="range" id="slA" min="0" max="5" step="0.1" value="1" oninput="document.getElementById('aVal').innerText=this.value; runRoute();">
+                <div style="display:flex; justify-content:space-between; font-size:10px; color:#94a3b8; margin:6px 0 3px;"><span>Distance β</span><span id="bVal" style="color:#6366f1; font-weight:700;">0.01</span></div>
+                <input type="range" id="slB" min="0" max="0.1" step="0.005" value="0.01" oninput="document.getElementById('bVal').innerText=this.value; runRoute();">
+                <div style="display:flex; justify-content:space-between; font-size:10px; color:#94a3b8; margin:6px 0 3px;"><span>Toll γ</span><span id="gVal" style="color:#6366f1; font-weight:700;">10</span></div>
+                <input type="range" id="slG" min="0" max="50" step="1" value="10" oninput="document.getElementById('gVal').innerText=this.value; runRoute();">
+            </div>
+
+            <!-- Constraints -->
+            <div class="card">
+                <div class="section-label" style="margin-bottom:10px;">🔧 Live Constraints</div>
+                <div style="display:flex; flex-direction:column; gap:9px;">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:11px;color:#94a3b8;">
+                        <input type="checkbox" id="chkTraffic" onchange="runRoute()"> Simulate Traffic Jam (2.5× Row-3 Slowdown)
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:11px;color:#94a3b8;">
+                        <input type="checkbox" id="chkClosure" onchange="runRoute()"> Block Road: N3_2 → N3_3
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:11px;color:#94a3b8;">
+                        <input type="checkbox" id="chkTurns" onchange="runRoute()"> Intersection Turn Penalties (+15s)
+                    </label>
+                </div>
+            </div>
+
+            <!-- Metrics Panel -->
+            <div class="card" id="metricsCard" style="display:none;">
+                <div class="section-label" style="margin-bottom:10px;">📊 Optimal Path Analytics</div>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;">
+                    <div class="metric-card"><div style="font-size:8px;color:#475569;margin-bottom:2px;">DURATION</div><div class="metric-val" id="mETA" style="color:#818cf8;">—</div></div>
+                    <div class="metric-card"><div style="font-size:8px;color:#475569;margin-bottom:2px;">LENGTH</div><div class="metric-val" id="mDist" style="color:#2dd4bf;">—</div></div>
+                    <div class="metric-card"><div style="font-size:8px;color:#475569;margin-bottom:2px;">TOLLS</div><div class="metric-val" id="mTolls" style="color:#fbbf24;">—</div></div>
+                    <div class="metric-card"><div style="font-size:8px;color:#475569;margin-bottom:2px;">ENERGY</div><div class="metric-val" id="mEnergy" style="color:#34d399;">—</div></div>
+                </div>
+
+                <!-- EV Alert -->
+                <div id="evAlert" style="display:flex;margin-bottom:10px;">
+                    <span style="font-size:18px;margin-right:8px;">⚡</span>
+                    <div style="font-size:10px;color:#c4b5fd;">
+                        <b style="color:#a78bfa;display:block;margin-bottom:2px;">EV Battery Warning!</b>
+                        Range insufficient — detour via charging station: <b id="evStop" style="color:#e0e7ff;"></b>
+                    </div>
+                </div>
+
+                <!-- Route Sequence -->
+                <div class="section-label" style="margin-bottom:5px;">NODE TRAVERSAL SEQUENCE</div>
+                <div id="routeSeq">—</div>
+
+                <!-- Comparison: Algo -->
+                <div class="section-label" style="margin:10px 0 6px;">ALGORITHM COMPARISON</div>
+                <div id="compareTable" style="display:flex;flex-direction:column;gap:0;"></div>
+            </div>
+
+            <!-- Pareto Alternatives -->
+            <div class="card">
+                <div class="section-label" style="margin-bottom:10px;">🔀 Pareto Alternatives</div>
+                <div id="altContainer" style="display:flex;flex-direction:column;gap:5px;">
+                    <div style="font-size:10px;color:#334155;">Run a route to load alternatives.</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MAP -->
+    <div style="flex:1; position:relative;">
+        <div id="map" style="width:100%;height:100%;"></div>
+
+        <!-- Floating Legend -->
+        <div style="position:absolute;top:14px;right:14px;z-index:500;background:rgba(7,11,20,0.92);border:1px solid rgba(99,102,241,0.2);border-radius:14px;padding:14px 16px;backdrop-filter:blur(12px);min-width:200px;">
+            <div style="font-size:10px;font-weight:700;color:white;margin-bottom:8px;font-family:'Outfit';">GRID LEGEND</div>
+            <div style="display:flex;flex-direction:column;gap:5px;font-size:10px;color:#94a3b8;">
+                <div style="display:flex;align-items:center;gap:8px;"><span style="width:20px;height:2px;background:#3b82f6;display:inline-block;border-radius:2px;"></span>Residential Road</div>
+                <div style="display:flex;align-items:center;gap:8px;"><span style="width:20px;height:2px;background:#f59e0b;display:inline-block;border-radius:2px;"></span>Toll Expressway (Row 3)</div>
+                <div style="display:flex;align-items:center;gap:8px;"><span style="width:20px;height:2px;background:#a855f7;display:inline-block;border-radius:2px;"></span>One-Way Shortcut</div>
+                <div style="display:flex;align-items:center;gap:8px;"><span style="width:10px;height:10px;background:#22c55e;border-radius:50%;border:2px solid white;display:inline-block;"></span>Origin</div>
+                <div style="display:flex;align-items:center;gap:8px;"><span style="width:10px;height:10px;background:#f43f5e;border-radius:50%;border:2px solid white;display:inline-block;"></span>Destination</div>
+                <div style="display:flex;align-items:center;gap:8px;"><span style="width:10px;height:10px;background:#6366f1;border-radius:50%;border:2px solid white;display:inline-block;"></span>⚡ EV Charging Hub</div>
+            </div>
+        </div>
+
+        <!-- Computing Badge -->
+        <div id="computingBadge" style="display:none;position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:500;background:rgba(99,102,241,0.9);color:white;font-size:11px;font-weight:600;padding:8px 18px;border-radius:20px;box-shadow:0 0 20px rgba(99,102,241,0.5);">
+            ⚙️ Computing optimal path...
+        </div>
+    </div>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ─── Config ───────────────────────────────────────────────────────
+const BASE_LAT = 12.9716, BASE_LON = 77.5946, N = 6, SPACING = 0.0025;
+const CHARGERS = new Set(['N1_1', 'N3_3', 'N4_4']);
+let selectedObj = 'time', selectedAlgo = 'dijkstra';
+let routeLayer = null, originMk = null, destMk = null, chargerMks = [];
+
+// ─── Node Coordinates ─────────────────────────────────────────────
+const coords = {};
+const nodes = [];
+for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+    const id = `N${i}_${j}`;
+    nodes.push(id);
+    coords[id] = [BASE_LAT + i * SPACING, BASE_LON + j * SPACING];
+}
+
+// ─── Build Graph ──────────────────────────────────────────────────
+// adjacency: { node: [ {to, dist_m, speed_kph, toll, road_class} ] }
+function buildGraph() {
+    const adj = {};
+    nodes.forEach(n => adj[n] = []);
+    const addEdge = (u, v, dist, speed, toll, cls) => {
+        const baseSec = dist / (speed * 1000 / 3600);
+        const evKwh = (dist / 1000) * (cls === 'primary' ? 0.15 : 0.22);
+        adj[u].push({ to: v, dist_m: dist, speed_kph: speed, toll, road_class: cls, base_sec: baseSec, ev_kwh: evKwh });
+    };
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+        if (j+1 < N) { addEdge(`N${i}_${j}`, `N${i}_${j+1}`, 300, 40, 0, 'residential'); addEdge(`N${i}_${j+1}`, `N${i}_${j}`, 300, 40, 0, 'residential'); }
+        if (i+1 < N) { addEdge(`N${i}_${j}`, `N${i+1}_${j}`, 300, 35, 0, 'residential'); addEdge(`N${i+1}_${j}`, `N${i}_${j}`, 300, 35, 0, 'residential'); }
+    }
+    // Toll expressway Row 3
+    for (let j = 0; j < N-1; j++) { addEdge(`N3_${j}`, `N3_${j+1}`, 300, 80, 2, 'primary'); addEdge(`N3_${j+1}`, `N3_${j}`, 300, 80, 2, 'primary'); }
+    // One-way shortcut
+    addEdge('N0_0', 'N2_2', 840, 60, 0, 'link');
+    return adj;
+}
+
+let G = buildGraph();
+
+// ─── Cost Functions ────────────────────────────────────────────────
+const getCost = (edge, obj, trafficFactor=1.0, turnPenalty=0) => {
+    const tf = trafficFactor;
+    switch(obj) {
+        case 'time':     return edge.base_sec * tf + turnPenalty;
+        case 'distance': return edge.dist_m;
+        case 'money':    return edge.toll;
+        case 'eco':      return edge.base_sec * tf * (edge.road_class === 'primary' ? 0.85 : 1.0);
+        case 'ev':       return edge.ev_kwh;
+        case 'weighted': {
+            const a = +document.getElementById('slA').value;
+            const b = +document.getElementById('slB').value;
+            const g = +document.getElementById('slG').value;
+            return a * edge.base_sec * tf + b * edge.dist_m + g * edge.toll;
+        }
+        default: return edge.base_sec * tf;
+    }
+};
+
+// ─── Dijkstra ─────────────────────────────────────────────────────
+function dijkstra(src, dst, obj, trafficSet, closedSet, turnPenSec) {
+    const dist = {};
+    const prev = {};
+    const pq = [[0, src, null]];
+    nodes.forEach(n => dist[n] = Infinity);
+    dist[src] = 0;
+
+    while (pq.length) {
+        pq.sort((a,b) => a[0]-b[0]);
+        const [d, u, from] = pq.shift();
+        if (d > dist[u]) continue;
+        if (u === dst) break;
+        (G[u] || []).forEach(edge => {
+            const edgeKey = u + '->' + edge.to;
+            if (closedSet.has(edgeKey)) return;
+            const tf = trafficSet.has(edgeKey) ? 2.5 : 1.0;
+            const turn = (from && from !== u && turnPenSec) ? turnPenSec : 0;
+            const cost = d + getCost(edge, obj, tf, turn);
+            if (cost < dist[edge.to]) {
+                dist[edge.to] = cost;
+                prev[edge.to] = u;
+                pq.push([cost, edge.to, u]);
+            }
+        });
+    }
+    if (dist[dst] === Infinity) return null;
+    const path = [];
+    let cur = dst;
+    while (cur !== undefined) { path.unshift(cur); cur = prev[cur]; }
+    return path;
+}
+
+// ─── BFS ──────────────────────────────────────────────────────────
+function bfs(src, dst, closedSet) {
+    const visited = new Set([src]);
+    const queue = [[src, [src]]];
+    while (queue.length) {
+        const [u, path] = queue.shift();
+        if (u === dst) return path;
+        (G[u] || []).forEach(edge => {
+            if (!visited.has(edge.to) && !closedSet.has(u+'->'+edge.to)) {
+                visited.add(edge.to);
+                queue.push([edge.to, [...path, edge.to]]);
+            }
+        });
+    }
+    return null;
+}
+
+// ─── DFS ──────────────────────────────────────────────────────────
+function dfs(src, dst, closedSet) {
+    const visited = new Set();
+    let found = null;
+    const dfsHelper = (u, path) => {
+        if (found) return;
+        visited.add(u);
+        if (u === dst) { found = [...path]; return; }
+        (G[u] || []).forEach(edge => {
+            if (!visited.has(edge.to) && !closedSet.has(u+'->'+edge.to)) {
+                dfsHelper(edge.to, [...path, edge.to]);
+            }
+        });
+    };
+    dfsHelper(src, [src]);
+    return found;
+}
+
+// ─── Path Metrics ─────────────────────────────────────────────────
+function computeMetrics(path, trafficSet) {
+    let time=0, dist=0, tolls=0, energy=0;
+    for (let i = 0; i < path.length-1; i++) {
+        const u = path[i], v = path[i+1];
+        const edge = (G[u]||[]).find(e => e.to === v);
+        if (!edge) continue;
+        const tf = trafficSet.has(u+'->'+v) ? 2.5 : 1.0;
+        time   += edge.base_sec * tf;
+        dist   += edge.dist_m;
+        tolls  += edge.toll;
+        energy += edge.ev_kwh;
+    }
+    return { time, dist, tolls, energy };
+}
+
+// ─── Map Init ─────────────────────────────────────────────────────
+const map = L.map('map', { zoomControl: false }).setView([BASE_LAT + N*SPACING/2, BASE_LON + N*SPACING/2], 14);
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+
+// Node markers
+nodes.forEach(nodeId => {
+    const isCharger = CHARGERS.has(nodeId);
+    const mk = L.circleMarker(coords[nodeId], {
+        radius: isCharger ? 7 : 4,
+        fillColor: isCharger ? '#6366f1' : '#1e3a5f',
+        color: isCharger ? '#a5b4fc' : '#1e40af',
+        weight: 1.5, opacity: 1, fillOpacity: 0.9
+    }).addTo(map);
+    mk.bindTooltip((isCharger ? '⚡ ' : '') + nodeId, { permanent: isCharger, direction: 'top', className: 'leaflet-tooltip' });
+});
+
+// ─── Setup Selectors ──────────────────────────────────────────────
+const srcSel = document.getElementById('srcNode');
+const dstSel = document.getElementById('dstNode');
+nodes.forEach(n => {
+    srcSel.add(new Option(n, n));
+    dstSel.add(new Option(n, n));
+});
+srcSel.value = 'N0_0';
+dstSel.value = 'N5_5';
+
+// ─── Algo Selector ────────────────────────────────────────────────
+function setAlgo(a) {
+    selectedAlgo = a;
+    ['dijkstra','astar','bfs','dfs'].forEach(x => {
+        document.getElementById('algo'+x.charAt(0).toUpperCase()+x.slice(1))?.classList.remove('active');
+    });
+    document.getElementById('algo'+a.charAt(0).toUpperCase()+a.slice(1))?.classList.add('active');
+    runRoute();
+}
+
+// ─── Objective Selector ───────────────────────────────────────────
+function setObj(obj) {
+    selectedObj = obj;
+    ['time','distance','money','eco','ev','weighted'].forEach(o => {
+        document.getElementById('btn-'+o)?.classList.remove('active','active-ev');
+    });
+    document.getElementById('btn-'+obj)?.classList.add(obj === 'ev' ? 'active-ev' : 'active');
+    document.getElementById('evPanel').style.display    = obj === 'ev' ? 'block' : 'none';
+    document.getElementById('weightPanel').style.display = obj === 'weighted' ? 'block' : 'none';
+    runRoute();
+}
+
+function updateBat() {
+    const v = document.getElementById('batSlider').value;
+    document.getElementById('batVal').innerText = v + ' kWh';
+}
+
+// ─── Main Route ───────────────────────────────────────────────────
+function runRoute() {
+    const src = srcSel.value, dst = dstSel.value;
+
+    const trafficSet = new Set();
+    if (document.getElementById('chkTraffic').checked)
+        for (let j=0;j<N-1;j++) { trafficSet.add(`N3_${j}->N3_${j+1}`); trafficSet.add(`N3_${j+1}->N3_${j}`); }
+
+    const closedSet = new Set();
+    if (document.getElementById('chkClosure').checked) closedSet.add('N3_2->N3_3');
+
+    const turnPen = document.getElementById('chkTurns').checked ? 15 : 0;
+
+    document.getElementById('computingBadge').style.display = 'block';
+
+    setTimeout(() => {
+        let path = null;
+        let algoLabel = '';
+
+        if (selectedAlgo === 'bfs') { path = bfs(src, dst, closedSet); algoLabel = 'BFS (Unweighted)'; }
+        else if (selectedAlgo === 'dfs') { path = dfs(src, dst, closedSet); algoLabel = 'DFS (Unweighted)'; }
+        else path = dijkstra(src, dst, selectedObj, trafficSet, closedSet, turnPen);
+
+        document.getElementById('computingBadge').style.display = 'none';
+
+        if (!path) { alert('No path found!'); return; }
+
+        let evRecharged = false, chargerStop = null;
+        if (selectedObj === 'ev') {
+            const batCap = parseFloat(document.getElementById('batSlider').value);
+            const metrics = computeMetrics(path, trafficSet);
+            if (batCap - metrics.energy < 2.0) {
+                // Re-route via best charger
+                let best = null, bestTime = Infinity;
+                CHARGERS.forEach(ch => {
+                    const p1 = dijkstra(src, ch, 'ev', trafficSet, closedSet, 0);
+                    const p2 = dijkstra(ch, dst, 'ev', trafficSet, closedSet, 0);
+                    if (p1 && p2) {
+                        const t = computeMetrics(p1, trafficSet).time + computeMetrics(p2, trafficSet).time + 120;
+                        if (t < bestTime) { bestTime = t; best = { p1, p2, ch }; }
+                    }
+                });
+                if (best) {
+                    path = [...best.p1.slice(0,-1), ...best.p2];
+                    evRecharged = true;
+                    chargerStop = best.ch;
+                }
+            }
+        }
+
+        drawRoute(path, src, dst, evRecharged, chargerStop, trafficSet);
+        showMetrics(path, trafficSet, evRecharged, chargerStop);
+        showAlternatives(src, dst, trafficSet, closedSet);
+        showTraversal(path, selectedAlgo);
+    }, 200);
+}
+
+// ─── Draw Route ───────────────────────────────────────────────────
+function drawRoute(path, src, dst, evRecharged, chargerStop, trafficSet) {
+    if (routeLayer) map.removeLayer(routeLayer);
+    if (originMk)  map.removeLayer(originMk);
+    if (destMk)    map.removeLayer(destMk);
+    chargerMks.forEach(m => map.removeLayer(m));
+    chargerMks = [];
+
+    const latlons = path.map(n => coords[n]);
+
+    routeLayer = L.polyline(latlons, {
+        color: evRecharged ? '#8b5cf6' : '#6366f1',
+        weight: 5, opacity: 0.95,
+        dashArray: selectedObj === 'weighted' ? '8,8' : null
+    }).addTo(map);
+
+    originMk = L.circleMarker(coords[src], { radius:9, fillColor:'#22c55e', color:'#fff', weight:2, fillOpacity:1 })
+        .addTo(map).bindTooltip('⬤ Start: '+src, { permanent:false });
+
+    destMk = L.circleMarker(coords[dst], { radius:9, fillColor:'#f43f5e', color:'#fff', weight:2, fillOpacity:1 })
+        .addTo(map).bindTooltip('⬤ End: '+dst, { permanent:false });
+
+    if (chargerStop) {
+        const cm = L.circleMarker(coords[chargerStop], { radius:11, fillColor:'#8b5cf6', color:'#fff', weight:2, fillOpacity:1 })
+            .addTo(map).bindTooltip('⚡ Recharge: '+chargerStop, { permanent:true });
+        chargerMks.push(cm);
+    }
+
+    map.fitBounds(routeLayer.getBounds(), { padding:[40,40] });
+}
+
+// ─── Metrics Panel ────────────────────────────────────────────────
+function showMetrics(path, trafficSet, evRecharged, chargerStop) {
+    const m = computeMetrics(path, trafficSet);
+    if (evRecharged) m.time += 120;
+    document.getElementById('metricsCard').style.display = 'block';
+    document.getElementById('mETA').innerText    = Math.round(m.time) + 's';
+    document.getElementById('mDist').innerText   = Math.round(m.dist) + 'm';
+    document.getElementById('mTolls').innerText  = m.tolls;
+    document.getElementById('mEnergy').innerText = m.energy.toFixed(2) + ' kWh';
+    document.getElementById('routeSeq').innerText = path.join(' → ');
+
+    const evAlert = document.getElementById('evAlert');
+    if (evRecharged && chargerStop) {
+        evAlert.style.display = 'flex';
+        document.getElementById('evStop').innerText = chargerStop;
+    } else {
+        evAlert.style.display = 'none';
+    }
+
+    // Compare algo times
+    const ct = document.getElementById('compareTable');
+    ct.innerHTML = '';
+    [['Dijkstra','time'],['A* (≈)','time'],['BFS (hops)','distance']].forEach(([label, obj]) => {
+        const p = dijkstra(srcSel.value, dstSel.value, obj, trafficSet, new Set(), 0);
+        if (!p) return;
+        const mm = computeMetrics(p, trafficSet);
+        const row = document.createElement('div');
+        row.className = 'compare-row';
+        row.innerHTML = `<span style="color:#64748b;">${label}</span><span style="color:#94a3b8;">${Math.round(mm.time)}s · ${Math.round(mm.dist)}m</span>`;
+        ct.appendChild(row);
+    });
+}
+
+// ─── Traversal Visualization ──────────────────────────────────────
+function showTraversal(path, algo) {
+    const box = document.getElementById('traversalBox');
+    if (algo === 'bfs' || algo === 'dfs') {
+        box.style.display = 'block';
+        box.innerText = (algo.toUpperCase()) + ' visit order:\n' + path.join(' → ');
+    } else {
+        box.style.display = 'none';
+    }
+}
+
+// ─── Pareto Alternatives ──────────────────────────────────────────
+function showAlternatives(src, dst, trafficSet, closedSet) {
+    const container = document.getElementById('altContainer');
+    container.innerHTML = '';
+    const objectives = [
+        {obj:'time', label:'🚀 Fastest', color:'#818cf8'},
+        {obj:'distance', label:'📏 Shortest', color:'#2dd4bf'},
+        {obj:'money', label:'💵 Cheapest', color:'#fbbf24'},
+        {obj:'eco', label:'🌱 Eco', color:'#34d399'},
+    ];
+    objectives.forEach(({obj, label, color}) => {
+        const p = dijkstra(src, dst, obj, trafficSet, closedSet, 0);
+        if (!p) return;
+        const m = computeMetrics(p, trafficSet);
+        const div = document.createElement('div');
+        div.className = 'alt-item';
+        div.innerHTML = `
+            <div><span style="font-size:11px;font-weight:600;color:${color};">${label}</span>
+            <span style="display:block;font-size:9px;color:#334155;margin-top:2px;">${p.slice(0,3).join('→')}…${p.slice(-1)}</span></div>
+            <div style="text-align:right;"><span style="font-size:12px;font-weight:700;color:${color};">${Math.round(m.time)}s</span>
+            <span style="display:block;font-size:9px;color:#334155;">${Math.round(m.dist)}m | 💰${m.tolls}</span></div>`;
+        div.onclick = () => {
+            drawRoute(p, src, dst, false, null, trafficSet);
+            showMetrics(p, trafficSet, false, null);
+        };
+        container.appendChild(div);
+    });
+}
+
+// ─── Init ─────────────────────────────────────────────────────────
+srcSel.addEventListener('change', runRoute);
+dstSel.addEventListener('change', runRoute);
+runRoute();
+</script>
+</body>
+</html>

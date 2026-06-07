@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OptimaPath AI - Intelligent Route Optimizer Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts Outfit & Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #080c14;
+            color: #f3f4f6;
+        }
+        h1, h2, h3, .heading-font {
+            font-family: 'Outfit', sans-serif;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0d1222;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3b82f6;
+        }
+    </style>
+</head>
+<body class="overflow-hidden h-screen flex flex-col">
+    <!-- Premium Glassmorphism Navbar -->
+    <header class="border-b border-slate-800 bg-[#0b0f19]/90 backdrop-blur-md px-6 py-4 flex items-center justify-between z-10">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                    OptimaPath AI <span class="text-[10px] bg-indigo-500/20 text-indigo-400 font-semibold px-2 py-0.5 rounded-full border border-indigo-500/30">ULTRAPRO MAX</span>
+                </h1>
+                <p class="text-xs text-slate-400 font-medium">Smart City Autonomous & EV Multi-Agent Routing Engine</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-4 text-sm font-medium text-slate-300">
+            <span class="flex items-center gap-2 bg-[#121829] px-3 py-1.5 rounded-lg border border-slate-800">
+                <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></span>
+                EV Charging Stations Active: <b>N1_1, N3_3, N4_4</b>
+            </span>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <main class="flex-1 flex overflow-hidden">
+        <!-- Sidebar Controls -->
+        <section class="w-[420px] bg-[#0b0f19]/80 border-r border-slate-800 flex flex-col h-full overflow-y-auto p-6 space-y-6">
+            
+            <!-- Route Input Parameters Section -->
+            <div class="space-y-4">
+                <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-widest">Routing Terminals</h2>
+                
+                <div class="space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1" for="srcNode">Source Node</label>
+                            <select id="srcNode" class="w-full bg-[#121829] border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors">
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1" for="dstNode">Destination Node</label>
+                            <select id="dstNode" class="w-full bg-[#121829] border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors">
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Objective Selector -->
+            <div class="space-y-3">
+                <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-widest">Optimization Criterion</h2>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="setObjective('time')" id="btn-time" class="obj-btn py-2 px-3 rounded-lg border text-xs font-semibold transition-all flex flex-col items-center gap-1 bg-blue-600 border-blue-500 text-white">
+                        <span>🚀 Fastest Route</span>
+                        <span class="text-[9px] opacity-70">Minimize Duration</span>
+                    </button>
+                    <button onclick="setObjective('distance')" id="btn-distance" class="obj-btn py-2 px-3 rounded-lg border border-slate-800 bg-[#121829] text-slate-300 hover:border-slate-700 text-xs font-semibold transition-all flex flex-col items-center gap-1">
+                        <span>📏 Shortest Route</span>
+                        <span class="text-[9px] opacity-70">Minimize Distance</span>
+                    </button>
+                    <button onclick="setObjective('money')" id="btn-money" class="obj-btn py-2 px-3 rounded-lg border border-slate-800 bg-[#121829] text-slate-300 hover:border-slate-700 text-xs font-semibold transition-all flex flex-col items-center gap-1">
+                        <span>💵 Lowest Toll</span>
+                        <span class="text-[9px] opacity-70">Avoid Toll Gates</span>
+                    </button>
+                    <button onclick="setObjective('eco')" id="btn-eco" class="obj-btn py-2 px-3 rounded-lg border border-slate-800 bg-[#121829] text-slate-300 hover:border-slate-700 text-xs font-semibold transition-all flex flex-col items-center gap-1">
+                        <span>🌱 Eco-Proxy</span>
+                        <span class="text-[9px] opacity-70">Minimize Emissions</span>
+                    </button>
+                    <button onclick="setObjective('ev_constrained')" id="btn-ev_constrained" class="obj-btn col-span-2 py-2.5 px-3 rounded-lg border border-slate-800 bg-[#121829] text-slate-300 hover:border-slate-700 text-xs font-semibold transition-all flex flex-col items-center gap-1">
+                        <span>⚡ Electric Vehicle Range Constraint Routing</span>
+                        <span class="text-[9px] opacity-70">Auto Detour through Charging Stations if Battery is Low</span>
+                    </button>
+                </div>
+                <div class="pt-1">
+                    <button onclick="setObjective('weighted')" id="btn-weighted" class="obj-btn w-full py-2 px-3 rounded-lg border border-slate-800 bg-[#121829] text-slate-300 hover:border-slate-700 text-xs font-semibold transition-all flex items-center justify-center gap-2">
+                        ⚖️ Weighted Multi-Criteria Tuner
+                    </button>
+                </div>
+            </div>
+
+            <!-- EV Tuning Panel -->
+            <div id="evTuningPanel" class="hidden space-y-3 bg-indigo-950/20 border border-indigo-900/50 p-4 rounded-xl">
+                <h3 class="text-xs font-semibold text-indigo-400 uppercase tracking-wider">EV Battery Profiles</h3>
+                <div class="space-y-2">
+                    <div>
+                        <div class="flex justify-between text-[11px] text-slate-400">
+                            <span>Initial Battery Capacity</span>
+                            <span id="batteryVal">5.0 kWh</span>
+                        </div>
+                        <input type="range" id="batteryCap" min="2" max="15" step="0.5" value="5.0" class="w-full accent-indigo-500" oninput="updateEVConfig()">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[11px] text-slate-400">
+                            <span>Safety Lower Bound Buffer</span>
+                            <span>2.0 kWh</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Weighted parameters tuner -->
+            <div id="weightedTuner" class="hidden space-y-3 bg-[#121829] border border-slate-800 p-4 rounded-xl">
+                <h3 class="text-xs font-semibold text-slate-300">Custom Preference Weights</h3>
+                <div class="space-y-2">
+                    <div>
+                        <div class="flex justify-between text-[11px] text-slate-400">
+                            <span>Time Priority (α)</span>
+                            <span id="alphaVal">1.0</span>
+                        </div>
+                        <input type="range" id="weightAlpha" min="0" max="5" step="0.2" value="1.0" class="w-full accent-blue-500" oninput="updateWeights()">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[11px] text-slate-400">
+                            <span>Distance Priority (β)</span>
+                            <span id="betaVal">0.01</span>
+                        </div>
+                        <input type="range" id="weightBeta" min="0" max="0.1" step="0.005" value="0.01" class="w-full accent-blue-500" oninput="updateWeights()">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[11px] text-slate-400">
+                            <span>Toll Penalty (γ)</span>
+                            <span id="gammaVal">10.0</span>
+                        </div>
+                        <input type="range" id="weightGamma" min="0" max="50" step="1" value="10.0" class="w-full accent-blue-500" oninput="updateWeights()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Constraints -->
+            <div class="space-y-3">
+                <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-widest">Active Constraints</h2>
+                <div class="space-y-2">
+                    <label class="flex items-center gap-3 cursor-pointer text-sm text-slate-300">
+                        <input type="checkbox" id="chkTurnPenalties" class="rounded border-slate-800 bg-[#121829] text-blue-600 focus:ring-0" onchange="runRouteQuery()">
+                        Enforce Intersection Turn Penalties (+15s)
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer text-sm text-slate-300">
+                        <input type="checkbox" id="chkTraffic" class="rounded border-slate-800 bg-[#121829] text-blue-600 focus:ring-0" onchange="runRouteQuery()">
+                        Live Traffic Jam Slowdown (2.5x on Row 3)
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer text-sm text-slate-300">
+                        <input type="checkbox" id="chkClosure" class="rounded border-slate-800 bg-[#121829] text-blue-600 focus:ring-0" onchange="runRouteQuery()">
+                        Block Link Expressway Connection N3_2 -> N3_3
+                    </label>
+                </div>
+            </div>
+
+            <!-- Path Analytics -->
+            <div id="analyticsPanel" class="hidden space-y-3 bg-slate-900/40 border border-slate-800 rounded-xl p-4">
+                <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-widest">Optimal Path Metrics</h2>
+                <div class="grid grid-cols-4 gap-2">
+                    <div class="bg-[#121829] border border-slate-800/80 rounded-lg p-2 text-center">
+                        <span class="block text-[9px] text-slate-400 uppercase">Duration</span>
+                        <span id="metricETA" class="text-xs font-extrabold text-blue-400">-</span>
+                    </div>
+                    <div class="bg-[#121829] border border-slate-800/80 rounded-lg p-2 text-center">
+                        <span class="block text-[9px] text-slate-400 uppercase">Length</span>
+                        <span id="metricDist" class="text-xs font-extrabold text-teal-400">-</span>
+                    </div>
+                    <div class="bg-[#121829] border border-slate-800/80 rounded-lg p-2 text-center">
+                        <span class="block text-[9px] text-slate-400 uppercase">Tolls</span>
+                        <span id="metricTolls" class="text-xs font-extrabold text-amber-400">-</span>
+                    </div>
+                    <div class="bg-[#121829] border border-slate-800/80 rounded-lg p-2 text-center">
+                        <span class="block text-[9px] text-slate-400 uppercase">Energy</span>
+                        <span id="metricEnergy" class="text-xs font-extrabold text-indigo-400">-</span>
+                    </div>
+                </div>
+                
+                <!-- EV Alert details -->
+                <div id="evWarningBox" class="hidden p-3 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-lg text-xs flex items-start gap-2">
+                    <span class="text-base">⚡</span>
+                    <div>
+                        <span class="font-bold block">EV Range Warning!</span>
+                        Direct route runs below buffer limit. Added recharge stop at: <b id="evRechargerStop"></b>
+                    </div>
+                </div>
+
+                <div>
+                    <span class="block text-xs text-slate-400 mb-1">Route Node Traversal sequence:</span>
+                    <div id="routeSequence" class="text-xs bg-[#121829] p-2 rounded border border-slate-800 text-slate-300 break-words font-mono max-h-24 overflow-y-auto">
+                        -
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alternative Suggestions -->
+            <div id="alternativesWrapper" class="space-y-2">
+                <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-widest">Pareto Alternatives</h2>
+                <div id="alternativesContainer" class="space-y-1.5 text-xs">
+                    <span class="text-slate-500">Calculate a route to load candidates.</span>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Map Container Area -->
+        <section class="flex-1 relative bg-slate-950">
+            <div id="map" class="h-full w-full"></div>
+            
+            <!-- Map Legend -->
+            <div class="absolute top-4 right-4 z-[500] flex flex-col gap-2">
+                <div class="bg-[#0b0f19]/90 border border-slate-800 rounded-xl p-4 backdrop-blur-md shadow-xl max-w-sm">
+                    <h3 class="text-xs font-semibold text-white mb-2">Simulated Live Grid Legend</h3>
+                    <div class="space-y-1.5 text-xs text-slate-300">
+                        <div class="flex items-center gap-2"><span class="w-3 h-0.5 bg-blue-500 inline-block"></span> Residential Edge</div>
+                        <div class="flex items-center gap-2"><span class="w-3 h-0.5 bg-amber-500 inline-block"></span> High-speed Toll Expressway (Row 3)</div>
+                        <div class="flex items-center gap-2"><span class="w-3 h-0.5 bg-purple-500 inline-block"></span> One-Way Shortcut Link</div>
+                        <div class="flex items-center gap-2"><span class="w-3 h-3 bg-emerald-500 border border-white rounded-full inline-block"></span> Origin Location</div>
+                        <div class="flex items-center gap-2"><span class="w-3 h-3 bg-rose-500 border border-white rounded-full inline-block"></span> Destination</div>
+                        <div class="flex items-center gap-2"><span class="w-3.5 h-3.5 bg-indigo-500 text-[10px] text-white flex items-center justify-center rounded font-bold">⚡</span> EV Fast Charging Station (N1_1, N3_3, N4_4)</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script>
+        let map;
+        let activeRouteLayer = null;
+        let originMarker = null;
+        let destMarker = null;
+        let selectedObjective = 'time';
+        let chargerMarkers = [];
+
+        const nodesList = [];
+        const nodeCoordinates = {};
+        const base_lat = 12.9716;
+        const base_lon = 77.5946;
+
+        for (let i = 0; i < 6; i++) {
+            for (let j = 0; j < 6; j++) {
+                const id = `N${i}_${j}`;
+                nodesList.push(id);
+                nodeCoordinates[id] = [base_lat + i * 0.0025, base_lon + j * 0.0025];
+            }
+        }
+
+        const chargingStations = ["N1_1", "N3_3", "N4_4"];
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            populateNodeSelectors();
+            runRouteQuery();
+        });
+
+        function initMap() {
+            map = L.map('map', { zoomControl: false }).setView([12.977, 77.60], 14);
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; CartoDB & OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Add node visual points to map
+            Object.keys(nodeCoordinates).forEach(nodeId => {
+                const coords = nodeCoordinates[nodeId];
+                const isCharger = chargingStations.includes(nodeId);
+                
+                const dot = L.circleMarker(coords, {
+                    radius: isCharger ? 6 : 4,
+                    fillColor: isCharger ? '#6366f1' : '#3b82f6',
+                    color: '#000',
+                    weight: 1,
+                    opacity: 0.8,
+                    fillOpacity: 0.9
+                }).addTo(map);
+                
+                if (isCharger) {
+                    dot.bindTooltip("⚡ Charger Station: " + nodeId, { permanent: true, direction: 'top', className: 'bg-indigo-900 border-none text-[8px] text-white rounded px-1' });
+                } else {
+                    dot.bindTooltip(nodeId, { permanent: false, direction: 'top', className: 'bg-slate-900 border-none text-[8px] text-white rounded px-1' });
+                }
+            });
+        }
+
+        function populateNodeSelectors() {
+            const srcSel = document.getElementById('srcNode');
+            const dstSel = document.getElementById('dstNode');
+            
+            nodesList.forEach(node => {
+                const opt1 = new Option(node, node);
+                const opt2 = new Option(node, node);
+                srcSel.add(opt1);
+                dstSel.add(opt2);
+            });
+
+            srcSel.value = "N0_0";
+            dstSel.value = "N5_5";
+
+            srcSel.addEventListener('change', runRouteQuery);
+            dstSel.addEventListener('change', runRouteQuery);
+        }
+
+        function setObjective(obj) {
+            selectedObjective = obj;
+            document.querySelectorAll('.obj-btn').forEach(btn => {
+                btn.className = "obj-btn py-2 px-3 rounded-lg border border-slate-800 bg-[#121829] text-slate-300 hover:border-slate-700 text-xs font-semibold transition-all flex flex-col items-center gap-1";
+            });
+            
+            const activeBtn = document.getElementById(`btn-${obj}`);
+            if (activeBtn) {
+                activeBtn.className = "obj-btn py-2 px-3 rounded-lg border text-xs font-semibold transition-all flex flex-col items-center gap-1 bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20";
+                if (obj === 'ev_constrained') {
+                    activeBtn.className = "obj-btn col-span-2 py-2.5 px-3 rounded-lg border text-xs font-semibold transition-all flex flex-col items-center gap-1 bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20";
+                }
+            }
+            
+            // Toggle panels
+            const tuner = document.getElementById('weightedTuner');
+            if (obj === 'weighted') tuner.classList.remove('hidden');
+            else tuner.classList.add('hidden');
+            
+            const evPanel = document.getElementById('evTuningPanel');
+            if (obj === 'ev_constrained') evPanel.classList.remove('hidden');
+            else evPanel.classList.add('hidden');
+            
+            runRouteQuery();
+        }
+
+        function updateWeights() {
+            document.getElementById('alphaVal').innerText = document.getElementById('weightAlpha').value;
+            document.getElementById('betaVal').innerText = document.getElementById('weightBeta').value;
+            document.getElementById('gammaVal').innerText = document.getElementById('weightGamma').value;
+            runRouteQuery();
+        }
+
+        function updateEVConfig() {
+            document.getElementById('batteryVal').innerText = document.getElementById('batteryCap').value + " kWh";
+            runRouteQuery();
+        }
+
+        async function runRouteQuery() {
+            const src = document.getElementById('srcNode').value;
+            const dst = document.getElementById('dstNode').value;
+
+            const traffic_edges = [];
+            if (document.getElementById('chkTraffic').checked) {
+                for (let j = 0; j < 5; j++) {
+                    traffic_edges.push([`N3_${j}`, `N3_${j+1}`]);
+                    traffic_edges.push([`N3_${j+1}`, `N3_${j}`]);
+                }
+            }
+
+            const close_edges = [];
+            if (document.getElementById('chkClosure').checked) {
+                close_edges.push(["N3_2", "N3_3"]);
+            }
+
+            const payload = {
+                src: src,
+                dst: dst,
+                objective: selectedObjective,
+                alpha: parseFloat(document.getElementById('weightAlpha').value),
+                beta: parseFloat(document.getElementById('weightBeta').value),
+                gamma: parseFloat(document.getElementById('weightGamma').value),
+                traffic_edges: traffic_edges,
+                close_edges: close_edges,
+                apply_turn_penalties: document.getElementById('chkTurnPenalties').checked,
+                turn_penalty_sec: 15.0,
+                initial_battery_kwh: parseFloat(document.getElementById('batteryCap').value),
+                min_battery_kwh: 2.0
+            };
+
+            try {
+                const response = await fetch('/route', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    renderRoute(data);
+                    fetchAlternatives(src, dst);
+                } else {
+                    alert('Error: ' + data.detail);
+                }
+            } catch (err) {
+                console.error("Routing request failed: ", err);
+            }
+        }
+
+        function renderRoute(routeData) {
+            if (activeRouteLayer) map.removeLayer(activeRouteLayer);
+            if (originMarker) map.removeLayer(originMarker);
+            if (destMarker) map.removeLayer(destMarker);
+            chargerMarkers.forEach(m => map.removeLayer(m));
+            chargerMarkers = [];
+
+            const path = routeData.path;
+            const startNode = path[0];
+            const endNode = path[path.length - 1];
+
+            originMarker = L.circleMarker(nodeCoordinates[startNode], {
+                radius: 8,
+                fillColor: '#10b981',
+                color: '#fff',
+                weight: 2,
+                fillOpacity: 1.0
+            }).addTo(map).bindTooltip("Origin: " + startNode);
+
+            destMarker = L.circleMarker(nodeCoordinates[endNode], {
+                radius: 8,
+                fillColor: '#f43f5e',
+                color: '#fff',
+                weight: 2,
+                fillOpacity: 1.0
+            }).addTo(map).bindTooltip("Destination: " + endNode);
+
+            // Add intermediate chargers if dynamic route detour was calculated
+            if (routeData.ev_recharged && routeData.recharge_stations) {
+                routeData.recharge_stations.forEach(station => {
+                    const chargerMarker = L.circleMarker([station.lat, station.lon], {
+                        radius: 10,
+                        fillColor: '#8b5cf6',
+                        color: '#fff',
+                        weight: 2,
+                        fillOpacity: 1.0
+                    }).addTo(map).bindTooltip("Recharging Hub: " + station.id);
+                    chargerMarkers.push(chargerMarker);
+                });
+                
+                document.getElementById('evWarningBox').classList.remove('hidden');
+                document.getElementById('evRechargerStop').innerText = routeData.recharge_stations.map(s => s.id).join(', ');
+            } else {
+                document.getElementById('evWarningBox').classList.add('hidden');
+            }
+
+            const latLons = routeData.geojson.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+            activeRouteLayer = L.polyline(latLons, {
+                color: routeData.ev_recharged ? '#8b5cf6' : '#3b82f6',
+                weight: 5,
+                opacity: 0.9,
+                dashArray: selectedObjective === 'weighted' ? '5, 10' : ''
+            }).addTo(map);
+
+            map.fitBounds(activeRouteLayer.getBounds(), { padding: [50, 50] });
+
+            document.getElementById('analyticsPanel').classList.remove('hidden');
+            document.getElementById('metricETA').innerText = Math.round(routeData.eta_sec) + "s";
+            document.getElementById('metricDist').innerText = Math.round(routeData.distance_m) + "m";
+            document.getElementById('metricTolls').innerText = routeData.tolls;
+            document.getElementById('metricEnergy').innerText = routeData.energy_kwh + " kWh";
+            document.getElementById('routeSequence').innerText = path.join(" ➔ ");
+        }
+
+        async function fetchAlternatives(src, dst) {
+            try {
+                const res = await fetch(`/alternatives?src=${src}&dst=${dst}`);
+                const data = await res.json();
+                const container = document.getElementById('alternativesContainer');
+                container.innerHTML = '';
+
+                if (data.alternatives && data.alternatives.length > 0) {
+                    data.alternatives.forEach((route, idx) => {
+                        const div = document.createElement('div');
+                        div.className = "p-2 bg-[#121829] border border-slate-800 rounded-lg hover:border-slate-700 cursor-pointer flex justify-between items-center transition-colors mb-1";
+                        div.innerHTML = `
+                            <div>
+                                <span class="font-semibold text-slate-300">Alt Option #${idx+1}</span>
+                                <span class="block text-[9px] text-slate-500">${route.path.slice(0, 3).join('→')}...${route.path.slice(-1)}</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="block text-indigo-400 font-bold">${Math.round(route.eta_sec)}s</span>
+                                <span class="block text-[9px] text-slate-400">${route.distance_m}m | 💰 ${route.tolls}</span>
+                            </div>
+                        `;
+                        div.onclick = () => renderRoute({
+                            path: route.path,
+                            eta_sec: route.eta_sec,
+                            distance_m: route.distance_m,
+                            tolls: route.tolls,
+                            energy_kwh: (route.distance_m/1000 * 0.18).toFixed(2),
+                            ev_recharged: false,
+                            geojson: route.geojson
+                        });
+                        container.appendChild(div);
+                    });
+                } else {
+                    container.innerHTML = '<span class="text-slate-500">No alternate Pareto routes found.</span>';
+                }
+            } catch (err) {
+                console.error("Alternatives request error: ", err);
+            }
+        }
+    </script>
+</body>
+</html>
