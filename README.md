@@ -1,5 +1,7 @@
 # OptimaPath AI: Intelligent Route Planner Using Graph Algorithms
 
+<img width="1923" height="925" alt="Screenshot 2026-06-07 165429" src="https://github.com/user-attachments/assets/8aa12e19-7e11-42a2-9d87-3b4379978e95" />
+
 OptimaPath AI is a production-grade, highly optimized routing and navigation engine built to calculate multi-objective shortest paths on road networks. It supports custom weights for time, distance, and tolls, simulates real-time traffic conditions, handles street blockages, computes turn penalties, and exposes a high-fidelity interactive dashboard.
 
 ## 🚀 Key Features
